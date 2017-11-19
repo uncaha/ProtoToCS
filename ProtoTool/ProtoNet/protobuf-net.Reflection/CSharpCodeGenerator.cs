@@ -234,31 +234,157 @@ namespace ProtoBuf.Reflection
                 default: return base.GetAccess(access);
             }
         }
-        /// <summary>
-        /// Write a field
-        /// </summary>
-        protected override void WriteField(GeneratorContext ctx, FieldDescriptorProto obj, ref object state, OneOfStub[] oneOfs)
+
+        protected void WriteFileRead(GeneratorContext ctx, FieldDescriptorProto obj, OneOfStub[] oneOfs)
         {
-            var name = ctx.NameNormalizer.GetName(obj);
-            var tw = ctx.Output;
+
+        }
+
+        protected override void WriteReadFun(GeneratorContext ctx, DescriptorProto obj, OneOfStub[] oneOfs)
+        {
+            ctx.WriteLine($"public void MergeFrom(byte[] _bytes){"{"}");
+            foreach (var inner in obj.Fields)
+            {
+                WriteFileRead(ctx, inner, oneOfs);
+            }
+
+            ctx.WriteLine($"{"}"}");
+        }
+
+        protected void WriteFileWrite(GeneratorContext ctx, FieldDescriptorProto obj, OneOfStub[] oneOfs)
+        {
+            
+           
 
             bool isOptional = obj.label == FieldDescriptorProto.Label.LabelOptional;
             bool isRepeated = obj.label == FieldDescriptorProto.Label.LabelRepeated;
 
-            OneOfStub oneOf = obj.ShouldSerializeOneofIndex() ? oneOfs?[obj.OneofIndex] : null;
-            if (oneOf != null && oneOf.CountTotal == 1)
-            {
-                oneOf = null; // not really a one-of, then!
-            }
-            bool explicitValues = isOptional && oneOf == null && ctx.Syntax == FileDescriptorProto.SyntaxProto2
-                && obj.type != FieldDescriptorProto.Type.TypeMessage
-                && obj.type != FieldDescriptorProto.Type.TypeGroup;
+            Google.Protobuf.WireFormat.WireType ttwtype = ProtoTool.ILHelper.GetWireType(obj.type);
+             uint ttag = Google.Protobuf.WireFormat.MakeTag(obj.Number, ttwtype);
+            string tagstr = $"output.WriteRawVarint32({ttag});";
 
-
-            string defaultValue = null;
-            bool suppressDefaultAttribute = !isOptional;
             var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
+            if (isOptional)
+            {
+                string tifvalue = "";
+                if (obj.type == FieldDescriptorProto.Type.TypeString)
+                    tifvalue = $"if(!string.IsNullOrEmpty({obj.Name})){"{"}";
+                else
+                    tifvalue = $"if({obj.Name} != default({typeName})){"{"}";
+                ctx.WriteLine(tifvalue).Indent();
+                //代码块
+                ctx.WriteLine(tagstr);
+                ctx.WriteLine(WriteString(obj.type, obj.Name));
 
+                ctx.Outdent();
+                ctx.WriteLine($"{"}"}");
+            }
+            else if(isRepeated)
+            {
+                ctx.WriteLine( $"if({obj.Name}.Count > 0 ){"{"}").Indent();
+                ctx.WriteLine($"for (int i = 0; i < {obj.Name}.Count; i++){"{"}").Indent();
+
+                ctx.WriteLine(tagstr);
+                ctx.WriteLine(WriteString(obj.type, obj.Name));
+
+                ctx.Outdent();
+                ctx.WriteLine("}");
+
+                ctx.Outdent();
+                ctx.WriteLine("}");
+            }
+            else
+            {
+                ctx.WriteLine(tagstr);
+                ctx.WriteLine(WriteString(obj.type, obj.Name));
+            }
+        }
+
+        protected override void WriteWriteFun(GeneratorContext ctx, DescriptorProto obj, OneOfStub[] oneOfs)
+        {
+            ctx.WriteLine($"public byte[] GetBytes(){"{"}").Indent();
+            ctx.WriteLine("System.IO.MemoryStream tmemsteam = new System.IO.MemoryStream();");
+            ctx.WriteLine("Google.Protobuf.CodedOutputStream output = new Google.Protobuf.CodedOutputStream(tmemsteam,512,true);");
+            foreach (var inner in obj.Fields)
+            {
+                WriteFileWrite(ctx, inner, oneOfs);
+            }
+            ctx.WriteLine($"output.Flush();");
+            ctx.WriteLine($"byte[] ret =  tmemsteam.GetBuffer();");
+            ctx.WriteLine($"output.Dispose();");
+            ctx.WriteLine($"return ret;");
+            ctx.Outdent();
+            ctx.WriteLine($"{"}"}");
+        }
+
+        protected string WriteString(FieldDescriptorProto.Type _type ,string _name)
+        {
+            string ret = "";
+            switch(_type)
+            {
+                case FieldDescriptorProto.Type.TypeSfixed32:
+                    ret = $"output.WriteSFixed32({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeFixed32:
+                    ret = $"output.WriteFixed32({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeSfixed64:
+                    ret = $"output.WriteSFixed64({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeFixed64:
+                    ret = $"output.WriteFixed64({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeInt32:
+                    ret = $"output.WriteInt32({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeInt64:
+                    ret = $"output.WriteInt64({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeSint32:
+                    ret = $"output.WriteSInt32({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeSint64:
+                    ret = $"output.WriteSInt64({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeUint32:
+                    ret = $"output.WriteUInt32({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeUint64:
+                    ret = $"output.WriteUInt64({_name});";
+                    break;
+                
+
+                case FieldDescriptorProto.Type.TypeFloat:
+                    ret = $"output.WriteFloat({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeDouble:
+                    ret = $"output.WriteDouble({_name});";
+                    break;
+
+                case FieldDescriptorProto.Type.TypeBool:
+                    ret = $"output.WriteBool({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeEnum:
+                    ret = $"output.WriteEnum({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeMessage:
+                    ret = $"output.WriteBytes(Google.Protobuf.ByteString.AttachBytes(_name.GetBytes()));";
+                    break;
+                
+                case FieldDescriptorProto.Type.TypeString:
+                    ret = $"output.WriteString({_name});";
+                    break;
+                case FieldDescriptorProto.Type.TypeBytes:
+                    ret = $"output.WriteBytes(Google.Protobuf.ByteString.AttachBytes(_name));";
+                    break;
+            }
+
+            return ret;
+        }
+
+        protected  string GetDefaltValue(GeneratorContext ctx, FieldDescriptorProto obj,bool isOptional)
+        {
+            string defaultValue = "";
             if (isOptional || obj.type == FieldDescriptorProto.Type.TypeEnum)
             {
                 defaultValue = obj.DefaultValue;
@@ -267,6 +393,10 @@ namespace ProtoBuf.Reflection
                 {
                     defaultValue = string.IsNullOrEmpty(defaultValue) ? "\"\""
                         : ("@\"" + (defaultValue ?? "").Replace("\"", "\"\"") + "\"");
+                }
+                else if(obj.type == FieldDescriptorProto.Type.TypeMessage)
+                {
+                    defaultValue = "null";
                 }
                 else if (obj.type == FieldDescriptorProto.Type.TypeDouble)
                 {
@@ -300,9 +430,9 @@ namespace ProtoBuf.Reflection
                         {
                             // find the first one; if that is a zero, we don't need it after all
                             found = enumType.Values.FirstOrDefault();
-                            if(found != null && found.Number == 0)
+                            if (found != null && found.Number == 0)
                             {
-                                if(!isOptional) found = null; // we don't need it after all
+                                if (!isOptional) found = null; // we don't need it after all
                             }
                         }
                         // for proto3 the default is 0, so no need to do anything - GetValueOrDefault() will do it all
@@ -313,26 +443,42 @@ namespace ProtoBuf.Reflection
                         }
                         if (!string.IsNullOrWhiteSpace(defaultValue))
                         {
+                            var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
                             defaultValue = typeName + "." + defaultValue;
                         }
                     }
                 }
             }
-            
-            if (!string.IsNullOrWhiteSpace(dataFormat))
-            {
-               // tw.Write($", DataFormat = global::ProtoBuf.DataFormat.{dataFormat}");
-            }
-            if (obj.IsPacked(ctx.Syntax))
-            {
-              //  tw.Write($", IsPacked = true");
-            }
-            if (obj.label == FieldDescriptorProto.Label.LabelRequired)
-            {
-               // tw.Write($", IsRequired = true");
-            }
 
-            WriteOptions(ctx, obj.Options);
+            return defaultValue;
+        }
+        /// <summary>
+        /// Write a field
+        /// </summary>
+        protected override void WriteField(GeneratorContext ctx, FieldDescriptorProto obj, ref object state, OneOfStub[] oneOfs)
+        {
+            var name = ctx.NameNormalizer.GetName(obj);
+            var tw = ctx.Output;
+
+            bool isOptional = obj.label == FieldDescriptorProto.Label.LabelOptional;
+            bool isRepeated = obj.label == FieldDescriptorProto.Label.LabelRepeated;
+            
+            OneOfStub oneOf = obj.ShouldSerializeOneofIndex() ? oneOfs?[obj.OneofIndex] : null;
+            if (oneOf != null && oneOf.CountTotal == 1)
+            {
+                oneOf = null; // not really a one-of, then!
+            }
+            bool explicitValues = isOptional && oneOf == null && ctx.Syntax == FileDescriptorProto.SyntaxProto2
+                && obj.type != FieldDescriptorProto.Type.TypeMessage
+                && obj.type != FieldDescriptorProto.Type.TypeGroup;
+
+
+            string defaultValue = null;
+            bool suppressDefaultAttribute = !isOptional;
+            var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
+
+            defaultValue = GetDefaltValue(ctx, obj, isOptional);
+
             if (isRepeated)
             {
                 var mapMsgType = isMap ? ctx.TryFind<DescriptorProto>(obj.TypeName) : null;
@@ -396,6 +542,10 @@ namespace ProtoBuf.Reflection
                 {
                     if (!string.IsNullOrEmpty(tvaluestr) && !tvaluestr.EndsWith("f"))
                         tvaluestr += "f";
+                }
+                else if(obj.type == FieldDescriptorProto.Type.TypeMessage)
+                {
+                    tvaluestr = $"new {typeName}()";
                 }
                 if(!string.IsNullOrEmpty(tvaluestr))
                     ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName} {obj.Name} = {tvaluestr};");

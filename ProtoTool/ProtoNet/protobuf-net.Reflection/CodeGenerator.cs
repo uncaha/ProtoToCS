@@ -240,10 +240,14 @@ namespace ProtoBuf.Reflection
 
             WriteMessageHeader(ctx, obj, ref state);
             var oneOfs = OneOfStub.Build(ctx, obj);
+            ctx.WriteLine("#region 属性");
             foreach (var inner in obj.Fields)
             {
                 WriteField(ctx, inner, ref state, oneOfs);
             }
+            ctx.WriteLine("#endregion");
+
+            ctx.WriteLine("#region 定义");
             foreach (var inner in obj.NestedTypes)
             {
                 WriteMessage(ctx, inner);
@@ -262,8 +266,19 @@ namespace ProtoBuf.Reflection
                 }
                 WriteExtensionsFooter(ctx, obj, ref extState);
             }
+            ctx.WriteLine("#endregion");
+
+            ctx.WriteLine("#region 读取写入");
+            WriteReadFun(ctx, obj, oneOfs);
+            WriteWriteFun(ctx, obj, oneOfs);
+            ctx.WriteLine("#endregion");
+  
+            
             WriteMessageFooter(ctx, obj, ref state);
         }
+
+        protected abstract void WriteWriteFun(GeneratorContext ctx, DescriptorProto obj,  OneOfStub[] oneOfs);
+        protected abstract void WriteReadFun(GeneratorContext ctx, DescriptorProto obj, OneOfStub[] oneOfs);
         /// <summary>
         /// Emit code representing a message field
         /// </summary>
