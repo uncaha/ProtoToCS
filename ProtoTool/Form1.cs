@@ -34,6 +34,13 @@ namespace ProtoTool
             var set = new FileDescriptorSet();
             set.AddImportPath(tpath);
 
+            string[] tpaths = Directory.GetDirectories(tpath);
+
+            foreach(string tp in tpaths)
+            {
+                set.AddImportPath(tp);
+            }
+
             DirectoryInfo tdirfolder = new DirectoryInfo(tpath);
             FileInfo[] tfileinfos = tdirfolder.GetFiles("*.proto", System.IO.SearchOption.AllDirectories);
             foreach (var input in tfileinfos)
