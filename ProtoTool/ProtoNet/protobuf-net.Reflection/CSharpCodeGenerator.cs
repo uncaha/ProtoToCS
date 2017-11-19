@@ -235,32 +235,151 @@ namespace ProtoBuf.Reflection
             }
         }
 
+        protected void ReaderString(GeneratorContext ctx, FieldDescriptorProto obj)
+        {
+            bool isRepeated = obj.label == FieldDescriptorProto.Label.LabelRepeated;
+            var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
+
+            string tfirstvalue = obj.Name;
+            if (isRepeated)
+                tfirstvalue = $"{typeName} tvalue";
+            switch (obj.type)
+            {
+                case FieldDescriptorProto.Type.TypeSfixed32:
+                    ctx.WriteLine( $"{tfirstvalue} = input.ReadSFixed32();");
+                    break;
+                case FieldDescriptorProto.Type.TypeFixed32:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadFixed32();"); 
+                    break;
+                case FieldDescriptorProto.Type.TypeSfixed64:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadSFixed64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeFixed64:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadFixed64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeInt32:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadInt32();"); 
+                    break;
+                case FieldDescriptorProto.Type.TypeInt64:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadInt64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeSint32:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadSInt32();");
+                    break;
+                case FieldDescriptorProto.Type.TypeSint64:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadSInt64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeUint32:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadUInt32();"); 
+                    break;
+                case FieldDescriptorProto.Type.TypeUint64:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadUInt64();");
+                    break;
+
+
+                case FieldDescriptorProto.Type.TypeFloat:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadFloat();"); 
+                    break;
+                case FieldDescriptorProto.Type.TypeDouble:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadDouble();");
+                    break;
+
+                case FieldDescriptorProto.Type.TypeBool:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadBool();"); 
+                    break;
+                case FieldDescriptorProto.Type.TypeEnum:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadEnum();");
+                    break;
+               
+                case FieldDescriptorProto.Type.TypeString:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadString();");
+                    break;
+            }
+
+            if (isRepeated)
+            {
+                if(FieldDescriptorProto.Type.TypeMessage == obj.type)
+                {
+                    ctx.WriteLine("{").Indent();
+                    ctx.WriteLine($"int tlen = input.ReadLength();");
+                    ctx.WriteLine($"byte[] tchildbuffer = input.ReadRawBytes(tlen);");
+                    ctx.WriteLine($"{typeName} tobj = new {typeName}();");
+                    ctx.WriteLine($"tobj.MergeFrom(tchildbuffer);");
+                    ctx.WriteLine($"{obj.Name}.Add(tobj);");
+                    ctx.Outdent().WriteLine("}");
+                }
+                else
+                    ctx.WriteLine($"{obj.Name}.Add(tvalue);").Outdent();
+
+            }
+            else
+            {
+                switch (obj.type)
+                {
+                    case FieldDescriptorProto.Type.TypeBytes:
+                        ctx.WriteLine("{").Indent();
+                        ctx.WriteLine($"int tlen = input.ReadLength();");
+                        ctx.WriteLine($"{tfirstvalue} = input.ReadRawBytes(tlen);");
+                        ctx.Outdent().WriteLine("}");
+                        break;
+                    case FieldDescriptorProto.Type.TypeMessage:
+                        ctx.WriteLine("{").Indent();
+                        ctx.WriteLine($"int tlen = input.ReadLength();");
+                        ctx.WriteLine($"byte[] tchildbuffer = input.ReadRawBytes(tlen);");
+                        ctx.WriteLine($"{tfirstvalue}.MergeFrom(tchildbuffer);");
+                        ctx.Outdent().WriteLine("}");
+                        break;
+                }
+               
+            }
+
+        }
+
         protected void WriteFileRead(GeneratorContext ctx, FieldDescriptorProto obj, OneOfStub[] oneOfs)
         {
-
+            bool isRepeated = obj.label == FieldDescriptorProto.Label.LabelRepeated;
+            var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
+            Google.Protobuf.WireFormat.WireType ttwtype = ProtoTool.ILHelper.GetWireType(obj.type);
+            uint ttag = Google.Protobuf.WireFormat.MakeTag(obj.Number, ttwtype);
+            ctx.WriteLine($"case {ttag}:").Indent();
+            ReaderString(ctx, obj);
+            ctx.WriteLine("break;").Outdent();
         }
 
         protected override void WriteReadFun(GeneratorContext ctx, DescriptorProto obj, OneOfStub[] oneOfs)
         {
-            ctx.WriteLine($"public void MergeFrom(byte[] _bytes){"{"}");
+            ctx.WriteLine($"public void MergeFrom(byte[] _bytes){"{"}").Indent();
+            ctx.WriteLine("Google.Protobuf.CodedInputStream input = new Google.Protobuf.CodedInputStream(_bytes);");
+            ctx.WriteLine("uint tag;");
+            ctx.WriteLine("while ((tag = input.ReadTag()) != 0) {").Indent();
+            ctx.WriteLine("switch(tag) {").Indent();
+            ctx.WriteLine("default:").Indent();
+            ctx.WriteLine("input.SkipLastField();");
+            ctx.WriteLine("break;").Outdent();
+
             foreach (var inner in obj.Fields)
             {
                 WriteFileRead(ctx, inner, oneOfs);
             }
 
-            ctx.WriteLine($"{"}"}");
+            ctx.Outdent().WriteLine("}");//switch
+
+            ctx.Outdent().WriteLine("}");//while
+
+            ctx.WriteLine("input.Dispose();");
+
+            ctx.Outdent().WriteLine("}");
+
         }
 
-        protected void WriteFileWrite(GeneratorContext ctx, FieldDescriptorProto obj, OneOfStub[] oneOfs)
+        protected void WriteFieldWrite(GeneratorContext ctx, FieldDescriptorProto obj, OneOfStub[] oneOfs)
         {
-            
-           
 
             bool isOptional = obj.label == FieldDescriptorProto.Label.LabelOptional;
             bool isRepeated = obj.label == FieldDescriptorProto.Label.LabelRepeated;
 
             Google.Protobuf.WireFormat.WireType ttwtype = ProtoTool.ILHelper.GetWireType(obj.type);
-             uint ttag = Google.Protobuf.WireFormat.MakeTag(obj.Number, ttwtype);
+            uint ttag = Google.Protobuf.WireFormat.MakeTag(obj.Number, ttwtype);
             string tagstr = $"output.WriteRawVarint32({ttag});";
 
             var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
@@ -307,7 +426,7 @@ namespace ProtoBuf.Reflection
             ctx.WriteLine("Google.Protobuf.CodedOutputStream output = new Google.Protobuf.CodedOutputStream(tmemsteam,512,true);");
             foreach (var inner in obj.Fields)
             {
-                WriteFileWrite(ctx, inner, oneOfs);
+                WriteFieldWrite(ctx, inner, oneOfs);
             }
             ctx.WriteLine($"output.Flush();");
             ctx.WriteLine($"byte[] ret =  tmemsteam.GetBuffer();");
