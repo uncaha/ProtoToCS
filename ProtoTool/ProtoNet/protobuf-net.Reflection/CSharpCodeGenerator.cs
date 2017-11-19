@@ -235,6 +235,72 @@ namespace ProtoBuf.Reflection
             }
         }
 
+        protected void ReadBaseDataStr(GeneratorContext ctx, FieldDescriptorProto.Type _type ,string _value,string _typename)
+        {
+            switch (_type)
+            {
+                case FieldDescriptorProto.Type.TypeSfixed32:
+                    ctx.WriteLine($"{_value} = input.ReadSFixed32();");
+                    break;
+                case FieldDescriptorProto.Type.TypeFixed32:
+                    ctx.WriteLine($"{_value} = input.ReadFixed32();");
+                    break;
+                case FieldDescriptorProto.Type.TypeSfixed64:
+                    ctx.WriteLine($"{_value} = input.ReadSFixed64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeFixed64:
+                    ctx.WriteLine($"{_value} = input.ReadFixed64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeInt32:
+                    ctx.WriteLine($"{_value} = input.ReadInt32();");
+                    break;
+                case FieldDescriptorProto.Type.TypeInt64:
+                    ctx.WriteLine($"{_value} = input.ReadInt64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeSint32:
+                    ctx.WriteLine($"{_value} = input.ReadSInt32();");
+                    break;
+                case FieldDescriptorProto.Type.TypeSint64:
+                    ctx.WriteLine($"{_value} = input.ReadSInt64();");
+                    break;
+                case FieldDescriptorProto.Type.TypeUint32:
+                    ctx.WriteLine($"{_value} = input.ReadUInt32();");
+                    break;
+                case FieldDescriptorProto.Type.TypeUint64:
+                    ctx.WriteLine($"{_value} = input.ReadUInt64();");
+                    break;
+
+
+                case FieldDescriptorProto.Type.TypeFloat:
+                    ctx.WriteLine($"{_value} = input.ReadFloat();");
+                    break;
+                case FieldDescriptorProto.Type.TypeDouble:
+                    ctx.WriteLine($"{_value} = input.ReadDouble();");
+                    break;
+
+                case FieldDescriptorProto.Type.TypeBool:
+                    ctx.WriteLine($"{_value} = input.ReadBool();");
+                    break;
+                case FieldDescriptorProto.Type.TypeEnum:
+                    ctx.WriteLine($"{_value} = ({_typename})input.ReadEnum();");
+                    break;
+
+                case FieldDescriptorProto.Type.TypeString:
+                    ctx.WriteLine($"{_value} = input.ReadString();");
+                    break;
+
+                case FieldDescriptorProto.Type.TypeBytes:
+                    ctx.WriteLine($"{_value} = input.ReadBytes().ToByteArray();");
+                    break;
+            }
+        }
+
+        protected void ReadCreatObjectStr(GeneratorContext ctx,string _typename,string _valuename)
+        {
+            ctx.WriteLine($"byte[] tchildbuffer = input.ReadBytes().ToByteArray();");
+            ctx.WriteLine($"{_typename} {_valuename} = new {_typename}();");
+            ctx.WriteLine($"{_valuename}.MergeFrom(tchildbuffer);");
+        }
         protected void ReaderString(GeneratorContext ctx, FieldDescriptorProto obj)
         {
             bool isRepeated = obj.label == FieldDescriptorProto.Label.LabelRepeated;
@@ -246,76 +312,43 @@ namespace ProtoBuf.Reflection
                 tfirstvalue = $"{typeName} tvalue";
                 ctx.WriteLine("{").Indent();
             }
-                
-            switch (obj.type)
-            {
-                case FieldDescriptorProto.Type.TypeSfixed32:
-                    ctx.WriteLine( $"{tfirstvalue} = input.ReadSFixed32();");
-                    break;
-                case FieldDescriptorProto.Type.TypeFixed32:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadFixed32();"); 
-                    break;
-                case FieldDescriptorProto.Type.TypeSfixed64:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadSFixed64();");
-                    break;
-                case FieldDescriptorProto.Type.TypeFixed64:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadFixed64();");
-                    break;
-                case FieldDescriptorProto.Type.TypeInt32:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadInt32();"); 
-                    break;
-                case FieldDescriptorProto.Type.TypeInt64:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadInt64();");
-                    break;
-                case FieldDescriptorProto.Type.TypeSint32:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadSInt32();");
-                    break;
-                case FieldDescriptorProto.Type.TypeSint64:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadSInt64();");
-                    break;
-                case FieldDescriptorProto.Type.TypeUint32:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadUInt32();"); 
-                    break;
-                case FieldDescriptorProto.Type.TypeUint64:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadUInt64();");
-                    break;
 
-
-                case FieldDescriptorProto.Type.TypeFloat:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadFloat();"); 
-                    break;
-                case FieldDescriptorProto.Type.TypeDouble:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadDouble();");
-                    break;
-
-                case FieldDescriptorProto.Type.TypeBool:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadBool();"); 
-                    break;
-                case FieldDescriptorProto.Type.TypeEnum:
-                    ctx.WriteLine($"{tfirstvalue} = ({typeName})input.ReadEnum();");
-                    break;
-               
-                case FieldDescriptorProto.Type.TypeString:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadString();");
-                    break;
-
-                case FieldDescriptorProto.Type.TypeBytes:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadBytes().ToByteArray();");
-                    break;
-            }
+            ReadBaseDataStr(ctx,obj.type, tfirstvalue, typeName);
 
             if (isRepeated)
             {
-                if(FieldDescriptorProto.Type.TypeMessage == obj.type)
+                var mapMsgType = isMap ? ctx.TryFind<DescriptorProto>(obj.TypeName) : null;
+                if (mapMsgType != null)
                 {
-                    ctx.WriteLine($"byte[] tchildbuffer = input.ReadBytes().ToByteArray();");
-                    ctx.WriteLine($"{typeName} tobj = new {typeName}();");
-                    ctx.WriteLine($"tobj.MergeFrom(tchildbuffer);");
-                    ctx.WriteLine($"{obj.Name}.Add(tobj);");
+                    var keyTypeName = GetTypeName(ctx, mapMsgType.Fields.Single(x => x.Number == 1),
+                        out var keyDataFormat, out var _);
+                    var valueTypeName = GetTypeName(ctx, mapMsgType.Fields.Single(x => x.Number == 2),
+                        out var valueDataFormat, out var _);
+
+                    string tkey = "tkey";
+                    if (FieldDescriptorProto.Type.TypeMessage == mapMsgType.Fields[0].type)
+                        ReadCreatObjectStr(ctx, keyTypeName, tkey);
+                    else
+                        ReadBaseDataStr(ctx, mapMsgType.Fields[0].type, $"{keyTypeName} {tkey}", keyTypeName);
+
+                    string tvalue = "tvalue";
+                    if (FieldDescriptorProto.Type.TypeMessage == mapMsgType.Fields[1].type)
+                        ReadCreatObjectStr(ctx, valueTypeName, tvalue);
+                    else
+                        ReadBaseDataStr(ctx, mapMsgType.Fields[1].type, $"{valueTypeName} {tvalue}", valueTypeName);
+
+                    ctx.WriteLine($"{obj.Name}.Add({tkey}, {tvalue});");
                 }
                 else
-                    ctx.WriteLine($"{obj.Name}.Add(tvalue);");
-
+                {
+                    if (FieldDescriptorProto.Type.TypeMessage == obj.type)
+                    {
+                        ReadCreatObjectStr(ctx, typeName, "tobj");
+                        ctx.WriteLine($"{obj.Name}.Add(tobj);");
+                    }
+                    else
+                        ctx.WriteLine($"{obj.Name}.Add(tvalue);");
+                }
                 ctx.Outdent().WriteLine("}");
 
             }
@@ -401,17 +434,40 @@ namespace ProtoBuf.Reflection
             }
             else if(isRepeated)
             {
-                ctx.WriteLine( $"if({obj.Name}.Count > 0 ){"{"}").Indent();
-                ctx.WriteLine($"for (int i = 0; i < {obj.Name}.Count; i++){"{"}").Indent();
+                var mapMsgType = isMap ? ctx.TryFind<DescriptorProto>(obj.TypeName) : null;
+                if (mapMsgType != null)
+                {
+                    var keyTypeName = GetTypeName(ctx, mapMsgType.Fields.Single(x => x.Number == 1),
+                        out var keyDataFormat, out var _);
+                    var valueTypeName = GetTypeName(ctx, mapMsgType.Fields.Single(x => x.Number == 2),
+                        out var valueDataFormat, out var _);
+                    // System.Collections.Generic.Dictionary<int, int> ttt = new Dictionary<int, int>();
+                    // System.Collections.Generic.KeyValuePair<int,int> ttt
+                    ctx.WriteLine($"if({obj.Name}.Count > 0 ){"{"}").Indent();
+                    ctx.WriteLine($"foreach (System.Collections.Generic.KeyValuePair<{keyTypeName}, {valueTypeName}> item in {obj.Name}){"{"}").Indent();
 
-                ctx.WriteLine(tagstr);
-                ctx.WriteLine(WriteString(obj.type, obj.Name + "[i]"));
+                    ctx.WriteLine(tagstr);
+                    ctx.WriteLine(WriteString(mapMsgType.Fields[0].type, "item.Key"));
+                    ctx.WriteLine(WriteString(mapMsgType.Fields[1].type, "item.Value"));
 
-                ctx.Outdent();
-                ctx.WriteLine("}");
+                    ctx.Outdent().WriteLine("}");
+                    ctx.Outdent().WriteLine("}");
+                }
+                else
+                {
+                    ctx.WriteLine($"if({obj.Name}.Count > 0 ){"{"}").Indent();
+                    ctx.WriteLine($"for (int i = 0; i < {obj.Name}.Count; i++){"{"}").Indent();
 
-                ctx.Outdent();
-                ctx.WriteLine("}");
+                    ctx.WriteLine(tagstr);
+                    ctx.WriteLine(WriteString(obj.type, obj.Name + "[i]"));
+
+                    ctx.Outdent().WriteLine("}");
+
+                    ctx.Outdent().WriteLine("}");
+                }
+
+
+                
             }
             else
             {
@@ -617,37 +673,6 @@ namespace ProtoBuf.Reflection
                 else
                 {
                     ctx.WriteLine($"{GetAccess(GetAccess(obj))} System.Collections.Generic.List<{typeName}> {Escape(obj.Name)} = new System.Collections.Generic.List<{typeName}>();");
-                }
-            }
-            else if (oneOf != null)
-            {
-                var defValue = string.IsNullOrWhiteSpace(defaultValue) ? $"default({typeName})" : defaultValue;
-                var fieldName = FieldPrefix + oneOf.OneOf.Name;
-                var storage = oneOf.GetStorage(obj.type, obj.TypeName);
-                ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName} {Escape(obj.Name)}").WriteLine("{").Indent();
-
-                switch (obj.type)
-                {
-                    case FieldDescriptorProto.Type.TypeMessage:
-                    case FieldDescriptorProto.Type.TypeGroup:
-                    case FieldDescriptorProto.Type.TypeEnum:
-                    case FieldDescriptorProto.Type.TypeBytes:
-                    case FieldDescriptorProto.Type.TypeString:
-                        ctx.WriteLine($"get {{ return {fieldName}.Is({obj.Number}) ? (({typeName}){fieldName}.{storage}) : {defValue}; }}");
-                        break;
-                    default:
-                        ctx.WriteLine($"get {{ return {fieldName}.Is({obj.Number}) ? {fieldName}.{storage} : {defValue}; }}");
-                        break;
-                }
-                var unionType = oneOf.GetUnionType();
-                ctx.WriteLine($"set {{ {fieldName} = new global::ProtoBuf.{unionType}({obj.Number}, value); }}")
-                    .Outdent().WriteLine("}")
-                    .WriteLine($"{GetAccess(GetAccess(obj))} bool ShouldSerialize{obj.Name}() => {fieldName}.Is({obj.Number});")
-                    .WriteLine($"{GetAccess(GetAccess(obj))} void Reset{obj.Name}() => global::ProtoBuf.{unionType}.Reset(ref {fieldName}, {obj.Number});");
-
-                if (oneOf.IsFirst())
-                {
-                    ctx.WriteLine().WriteLine($"private global::ProtoBuf.{unionType} {fieldName};");
                 }
             }
             else

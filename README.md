@@ -7,6 +7,6 @@
 
 其实只用到了Google.Protobuf的IO部分.
 
-还有部分定义方式未完成.请猥琐发育.
+Oneof Fields ,Map Fields,暂不支持.请猥琐发育.
 
 导出的类包含读写两个方法.请自行了解.
