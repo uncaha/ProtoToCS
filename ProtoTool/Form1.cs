@@ -14,6 +14,8 @@ namespace ProtoTool
 {
     public partial class Form1 : Form
     {
+        string mSPath = "";
+        string mDPaht = "";
         public Form1()
         {
             InitializeComponent();
@@ -21,9 +23,13 @@ namespace ProtoTool
 
         private int Export()
         {
+            textBox3.Text = "";
+            System.Text.StringBuilder tnewmsg = new StringBuilder();
             int exitCode = 0;
             string tpath = textBox1.Text;
             string tdirpath = textBox2.Text;
+            tnewmsg.AppendLine(System.DateTime.Now.ToString() + ":开始导出.");
+            textBox3.Text = tnewmsg.ToString();
             CodeGenerator codegen = CSharpCodeGenerator.Default;
             var set = new FileDescriptorSet();
             set.AddImportPath(tpath);
@@ -45,8 +51,10 @@ namespace ProtoTool
             foreach (var err in errors)
             {
                 if (err.IsError) exitCode++;
+                tnewmsg.AppendLine(err.ToString());              
                 Console.Error.WriteLine(err.ToString());
             }
+            textBox3.Text = tnewmsg.ToString();
             if (exitCode != 0) return exitCode;
 
             var files = codegen.Generate(set);
@@ -56,14 +64,45 @@ namespace ProtoTool
                 File.WriteAllText(path, file.Text);
             }
 
-
+            tnewmsg.AppendLine(System.DateTime.Now.ToString() + ":导出结束.");
+            textBox3.Text = tnewmsg.ToString();
             return 0;
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            Export();
+            try
+            {
+                Export();
+            }
+            catch (Exception _error)
+            {
+                textBox3.Text += _error.ToString();
+            }
+            
         }
 
+        private void button2_Click(object sender, EventArgs e)
+        {
+
+            FolderBrowserDialog topen = new FolderBrowserDialog();
+            topen.RootFolder = Environment.SpecialFolder.MyComputer;
+            if (topen.ShowDialog() == DialogResult.OK)
+            {
+                mSPath = topen.SelectedPath;
+                textBox1.Text = mSPath;
+            }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog topen = new FolderBrowserDialog();
+            topen.RootFolder = Environment.SpecialFolder.MyComputer;
+            if (topen.ShowDialog() == DialogResult.OK)
+            {
+                mDPaht = topen.SelectedPath;
+                textBox2.Text = mDPaht;
+            }
+        }
     }
 }

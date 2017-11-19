@@ -344,10 +344,10 @@ namespace ProtoBuf.Reflection
                         out var valueDataFormat, out var _);
                    ctx.WriteLine($"{GetAccess(GetAccess(obj))} System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}> {Escape(name)} = new System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}>();");
                 }
-                else if (UseArray(obj))
-                {
-                    ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName}[] {Escape(name)} ;");
-                }
+               // else if (UseArray(obj))
+              //  {
+                   // ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName}[] {Escape(name)} ;");
+              //  }
                 else
                 {
                     ctx.WriteLine($"{GetAccess(GetAccess(obj))} System.Collections.Generic.List<{typeName}> {Escape(name)} = new System.Collections.Generic.List<{typeName}>();");

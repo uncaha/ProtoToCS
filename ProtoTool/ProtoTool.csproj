@@ -38,9 +38,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Google.Protobuf">
-      <HintPath>.\Google.Protobuf.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
@@ -61,6 +58,14 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ProtoNet\GoogleProto\ByteArray.cs" />
+    <Compile Include="ProtoNet\GoogleProto\ByteString.cs" />
+    <Compile Include="ProtoNet\GoogleProto\CodedInputStream.cs" />
+    <Compile Include="ProtoNet\GoogleProto\CodedOutputStream.ComputeSize.cs" />
+    <Compile Include="ProtoNet\GoogleProto\CodedOutputStream.cs" />
+    <Compile Include="ProtoNet\GoogleProto\InvalidProtocolBufferException.cs" />
+    <Compile Include="ProtoNet\GoogleProto\ProtoPreconditions.cs" />
+    <Compile Include="ProtoNet\GoogleProto\WireFormat.cs" />
     <Compile Include="ProtoNet\protobuf-net.Reflection\CodeGenerator.cs" />
     <Compile Include="ProtoNet\protobuf-net.Reflection\CodeGenerator.OneOfStub.cs" />
     <Compile Include="ProtoNet\protobuf-net.Reflection\CSharpCodeGenerator.cs" />
@@ -187,9 +192,6 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="ProtoNet\protobuf-net\protobuf-net.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
