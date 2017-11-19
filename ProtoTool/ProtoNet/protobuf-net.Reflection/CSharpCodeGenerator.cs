@@ -242,7 +242,11 @@ namespace ProtoBuf.Reflection
 
             string tfirstvalue = obj.Name;
             if (isRepeated)
+            {
                 tfirstvalue = $"{typeName} tvalue";
+                ctx.WriteLine("{").Indent();
+            }
+                
             switch (obj.type)
             {
                 case FieldDescriptorProto.Type.TypeSfixed32:
@@ -288,11 +292,15 @@ namespace ProtoBuf.Reflection
                     ctx.WriteLine($"{tfirstvalue} = input.ReadBool();"); 
                     break;
                 case FieldDescriptorProto.Type.TypeEnum:
-                    ctx.WriteLine($"{tfirstvalue} = input.ReadEnum();");
+                    ctx.WriteLine($"{tfirstvalue} = ({typeName})input.ReadEnum();");
                     break;
                
                 case FieldDescriptorProto.Type.TypeString:
                     ctx.WriteLine($"{tfirstvalue} = input.ReadString();");
+                    break;
+
+                case FieldDescriptorProto.Type.TypeBytes:
+                    ctx.WriteLine($"{tfirstvalue} = input.ReadBytes().ToByteArray();");
                     break;
             }
 
@@ -300,32 +308,25 @@ namespace ProtoBuf.Reflection
             {
                 if(FieldDescriptorProto.Type.TypeMessage == obj.type)
                 {
-                    ctx.WriteLine("{").Indent();
-                    ctx.WriteLine($"int tlen = input.ReadLength();");
-                    ctx.WriteLine($"byte[] tchildbuffer = input.ReadRawBytes(tlen);");
+                    ctx.WriteLine($"byte[] tchildbuffer = input.ReadBytes().ToByteArray();");
                     ctx.WriteLine($"{typeName} tobj = new {typeName}();");
                     ctx.WriteLine($"tobj.MergeFrom(tchildbuffer);");
                     ctx.WriteLine($"{obj.Name}.Add(tobj);");
-                    ctx.Outdent().WriteLine("}");
                 }
                 else
-                    ctx.WriteLine($"{obj.Name}.Add(tvalue);").Outdent();
+                    ctx.WriteLine($"{obj.Name}.Add(tvalue);");
+
+                ctx.Outdent().WriteLine("}");
 
             }
             else
             {
                 switch (obj.type)
                 {
-                    case FieldDescriptorProto.Type.TypeBytes:
-                        ctx.WriteLine("{").Indent();
-                        ctx.WriteLine($"int tlen = input.ReadLength();");
-                        ctx.WriteLine($"{tfirstvalue} = input.ReadRawBytes(tlen);");
-                        ctx.Outdent().WriteLine("}");
-                        break;
+                    
                     case FieldDescriptorProto.Type.TypeMessage:
                         ctx.WriteLine("{").Indent();
-                        ctx.WriteLine($"int tlen = input.ReadLength();");
-                        ctx.WriteLine($"byte[] tchildbuffer = input.ReadRawBytes(tlen);");
+                        ctx.WriteLine($"byte[] tchildbuffer = input.ReadBytes().ToByteArray();");
                         ctx.WriteLine($"{tfirstvalue}.MergeFrom(tchildbuffer);");
                         ctx.Outdent().WriteLine("}");
                         break;
@@ -380,7 +381,7 @@ namespace ProtoBuf.Reflection
 
             Google.Protobuf.WireFormat.WireType ttwtype = ProtoTool.ILHelper.GetWireType(obj.type);
             uint ttag = Google.Protobuf.WireFormat.MakeTag(obj.Number, ttwtype);
-            string tagstr = $"output.WriteRawVarint32({ttag});";
+            string tagstr = $"output.WriteTag({ttag});";
 
             var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
             if (isOptional)
@@ -404,7 +405,7 @@ namespace ProtoBuf.Reflection
                 ctx.WriteLine($"for (int i = 0; i < {obj.Name}.Count; i++){"{"}").Indent();
 
                 ctx.WriteLine(tagstr);
-                ctx.WriteLine(WriteString(obj.type, obj.Name));
+                ctx.WriteLine(WriteString(obj.type, obj.Name + "[i]"));
 
                 ctx.Outdent();
                 ctx.WriteLine("}");
@@ -429,7 +430,7 @@ namespace ProtoBuf.Reflection
                 WriteFieldWrite(ctx, inner, oneOfs);
             }
             ctx.WriteLine($"output.Flush();");
-            ctx.WriteLine($"byte[] ret =  tmemsteam.GetBuffer();");
+            ctx.WriteLine($"byte[] ret = tmemsteam.ToArray();");
             ctx.WriteLine($"output.Dispose();");
             ctx.WriteLine($"return ret;");
             ctx.Outdent();
@@ -484,17 +485,17 @@ namespace ProtoBuf.Reflection
                     ret = $"output.WriteBool({_name});";
                     break;
                 case FieldDescriptorProto.Type.TypeEnum:
-                    ret = $"output.WriteEnum({_name});";
+                    ret = $"output.WriteEnum((int){_name});";
                     break;
                 case FieldDescriptorProto.Type.TypeMessage:
-                    ret = $"output.WriteBytes(Google.Protobuf.ByteString.AttachBytes(_name.GetBytes()));";
+                    ret = $"output.WriteBytes(Google.Protobuf.ByteString.CopyFrom({_name}.GetBytes()));";
                     break;
                 
                 case FieldDescriptorProto.Type.TypeString:
                     ret = $"output.WriteString({_name});";
                     break;
                 case FieldDescriptorProto.Type.TypeBytes:
-                    ret = $"output.WriteBytes(Google.Protobuf.ByteString.AttachBytes(_name));";
+                    ret = $"output.WriteBytes(Google.Protobuf.ByteString.CopyFrom({_name}));";
                     break;
             }
 
@@ -576,7 +577,7 @@ namespace ProtoBuf.Reflection
         /// </summary>
         protected override void WriteField(GeneratorContext ctx, FieldDescriptorProto obj, ref object state, OneOfStub[] oneOfs)
         {
-            var name = ctx.NameNormalizer.GetName(obj);
+            //var name = ctx.NameNormalizer.GetName(obj);
             var tw = ctx.Output;
 
             bool isOptional = obj.label == FieldDescriptorProto.Label.LabelOptional;
@@ -607,7 +608,7 @@ namespace ProtoBuf.Reflection
                         out var keyDataFormat, out var _);
                     var valueTypeName = GetTypeName(ctx, mapMsgType.Fields.Single(x => x.Number == 2),
                         out var valueDataFormat, out var _);
-                   ctx.WriteLine($"{GetAccess(GetAccess(obj))} System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}> {Escape(name)} = new System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}>();");
+                   ctx.WriteLine($"{GetAccess(GetAccess(obj))} System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}> {Escape(obj.Name)} = new System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}>();");
                 }
                // else if (UseArray(obj))
               //  {
@@ -615,7 +616,7 @@ namespace ProtoBuf.Reflection
               //  }
                 else
                 {
-                    ctx.WriteLine($"{GetAccess(GetAccess(obj))} System.Collections.Generic.List<{typeName}> {Escape(name)} = new System.Collections.Generic.List<{typeName}>();");
+                    ctx.WriteLine($"{GetAccess(GetAccess(obj))} System.Collections.Generic.List<{typeName}> {Escape(obj.Name)} = new System.Collections.Generic.List<{typeName}>();");
                 }
             }
             else if (oneOf != null)
@@ -623,7 +624,7 @@ namespace ProtoBuf.Reflection
                 var defValue = string.IsNullOrWhiteSpace(defaultValue) ? $"default({typeName})" : defaultValue;
                 var fieldName = FieldPrefix + oneOf.OneOf.Name;
                 var storage = oneOf.GetStorage(obj.type, obj.TypeName);
-                ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName} {Escape(name)}").WriteLine("{").Indent();
+                ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName} {Escape(obj.Name)}").WriteLine("{").Indent();
 
                 switch (obj.type)
                 {
@@ -641,8 +642,8 @@ namespace ProtoBuf.Reflection
                 var unionType = oneOf.GetUnionType();
                 ctx.WriteLine($"set {{ {fieldName} = new global::ProtoBuf.{unionType}({obj.Number}, value); }}")
                     .Outdent().WriteLine("}")
-                    .WriteLine($"{GetAccess(GetAccess(obj))} bool ShouldSerialize{name}() => {fieldName}.Is({obj.Number});")
-                    .WriteLine($"{GetAccess(GetAccess(obj))} void Reset{name}() => global::ProtoBuf.{unionType}.Reset(ref {fieldName}, {obj.Number});");
+                    .WriteLine($"{GetAccess(GetAccess(obj))} bool ShouldSerialize{obj.Name}() => {fieldName}.Is({obj.Number});")
+                    .WriteLine($"{GetAccess(GetAccess(obj))} void Reset{obj.Name}() => global::ProtoBuf.{unionType}.Reset(ref {fieldName}, {obj.Number});");
 
                 if (oneOf.IsFirst())
                 {
