@@ -16,9 +16,22 @@ namespace ProtoTool
     {
         string mSPath = "";
         string mDPaht = "";
+        string mPathsFile = "/Paths.txt";
         public Form1()
         {
             InitializeComponent();
+
+            string tpathfile = Directory.GetCurrentDirectory() + mPathsFile;
+            if(File.Exists(tpathfile))
+            {
+               string[] tlines =   File.ReadAllLines(tpathfile);
+                textBox1.Text = mSPath = tlines[0];
+                textBox2.Text = mDPaht = tlines[1];
+
+            }
+
+          //  string tpath = textBox1.Text;
+           // string tdirpath = textBox2.Text;
         }
 
         private int Export()
@@ -26,22 +39,31 @@ namespace ProtoTool
             textBox3.Text = "";
             System.Text.StringBuilder tnewmsg = new StringBuilder();
             int exitCode = 0;
-            string tpath = textBox1.Text;
-            string tdirpath = textBox2.Text;
+            mSPath = textBox1.Text;
+            mDPaht = textBox2.Text;
+
+            if (string.IsNullOrEmpty(mSPath) || string.IsNullOrEmpty(mDPaht)) return 1;
+            string tpathfile =  Directory.GetCurrentDirectory() + mPathsFile;
+            StringBuilder tstrb = new StringBuilder();
+            tstrb.AppendLine(mSPath);
+            tstrb.AppendLine(mDPaht);
+            File.WriteAllText(tpathfile, tstrb.ToString());
+
+
             tnewmsg.AppendLine(System.DateTime.Now.ToString() + ":开始导出.");
             textBox3.Text = tnewmsg.ToString();
             CodeGenerator codegen = CSharpCodeGenerator.Default;
             var set = new FileDescriptorSet();
-            set.AddImportPath(tpath);
+            set.AddImportPath(mSPath);
 
-            string[] tpaths = Directory.GetDirectories(tpath);
+            string[] tpaths = Directory.GetDirectories(mSPath);
 
             foreach(string tp in tpaths)
             {
                 set.AddImportPath(tp);
             }
 
-            DirectoryInfo tdirfolder = new DirectoryInfo(tpath);
+            DirectoryInfo tdirfolder = new DirectoryInfo(mSPath);
             FileInfo[] tfileinfos = tdirfolder.GetFiles("*.proto", System.IO.SearchOption.AllDirectories);
             foreach (var input in tfileinfos)
             {
@@ -67,7 +89,7 @@ namespace ProtoTool
             var files = codegen.Generate(set);
             foreach (var file in files)
             {
-                var path = Path.Combine(tdirpath, file.Name);
+                var path = Path.Combine(mDPaht, file.Name);
                 File.WriteAllText(path, file.Text);
             }
 
