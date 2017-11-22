@@ -565,16 +565,7 @@ namespace ProtoBuf.Reflection
             {
                 defaultValue = obj.DefaultValue;
 
-                if (obj.type == FieldDescriptorProto.Type.TypeString)
-                {
-                    defaultValue = string.IsNullOrEmpty(defaultValue) ? "\"\""
-                        : ("@\"" + (defaultValue ?? "").Replace("\"", "\"\"") + "\"");
-                }
-                else if(obj.type == FieldDescriptorProto.Type.TypeMessage)
-                {
-                    defaultValue = "null";
-                }
-                else if (obj.type == FieldDescriptorProto.Type.TypeDouble)
+                if (obj.type == FieldDescriptorProto.Type.TypeDouble)
                 {
                     switch (defaultValue)
                     {
@@ -677,13 +668,8 @@ namespace ProtoBuf.Reflection
             }
             else
             {
-                string tvaluestr = obj.DefaultValue;
-                if(typeName.Contains("string"))
-                {
-                    if(!string.IsNullOrEmpty(tvaluestr))
-                        tvaluestr = '"' + tvaluestr + '"';
-                }
-                else if (typeName.Contains("float") || typeName.Contains("double"))
+                string tvaluestr = defaultValue;
+                if (typeName.Contains("float") || typeName.Contains("double"))
                 {
                     if (!string.IsNullOrEmpty(tvaluestr) && !tvaluestr.EndsWith("f"))
                         tvaluestr += "f";
