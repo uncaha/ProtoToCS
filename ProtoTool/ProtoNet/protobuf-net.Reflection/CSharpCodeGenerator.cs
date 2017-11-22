@@ -558,61 +558,67 @@ namespace ProtoBuf.Reflection
             return ret;
         }
 
-        protected  string GetDefaltValue(GeneratorContext ctx, FieldDescriptorProto obj,bool isOptional)
+        protected  string GetDefaltValue(GeneratorContext ctx, FieldDescriptorProto obj,string _typename)
         {
-            string defaultValue = "";
-            if (isOptional || obj.type == FieldDescriptorProto.Type.TypeEnum)
+            string defaultValue = obj.DefaultValue;
+            if (obj.type == FieldDescriptorProto.Type.TypeString)
             {
-                defaultValue = obj.DefaultValue;
-
-                if (obj.type == FieldDescriptorProto.Type.TypeDouble)
+                if (!string.IsNullOrEmpty(defaultValue))
+                    defaultValue = '"' + defaultValue + '"';
+            }
+            else if (obj.type == FieldDescriptorProto.Type.TypeDouble)
+            {
+                switch (defaultValue)
                 {
-                    switch (defaultValue)
-                    {
-                        case "inf": defaultValue = "double.PositiveInfinity"; break;
-                        case "-inf": defaultValue = "double.NegativeInfinity"; break;
-                        case "nan": defaultValue = "double.NaN"; break;
-                    }
+                    case "inf": defaultValue = "double.PositiveInfinity"; break;
+                    case "-inf": defaultValue = "double.NegativeInfinity"; break;
+                    case "nan": defaultValue = "double.NaN"; break;
+                    default:
+                        if (!string.IsNullOrEmpty(defaultValue) && !defaultValue.EndsWith("f"))
+                            defaultValue += "f";
+                        break;
                 }
-                else if (obj.type == FieldDescriptorProto.Type.TypeFloat)
+            }
+            else if (obj.type == FieldDescriptorProto.Type.TypeFloat)
+            {
+                switch (defaultValue)
                 {
-                    switch (defaultValue)
-                    {
-                        case "inf": defaultValue = "float.PositiveInfinity"; break;
-                        case "-inf": defaultValue = "float.NegativeInfinity"; break;
-                        case "nan": defaultValue = "float.NaN"; break;
-                    }
+                    case "inf": defaultValue = "float.PositiveInfinity"; break;
+                    case "-inf": defaultValue = "float.NegativeInfinity"; break;
+                    case "nan": defaultValue = "float.NaN"; break;
+                    default:
+                        if (!string.IsNullOrEmpty(defaultValue) && !defaultValue.EndsWith("f"))
+                            defaultValue += "f";
+                        break;
                 }
-                else if (obj.type == FieldDescriptorProto.Type.TypeEnum)
+            }
+            else if (obj.type == FieldDescriptorProto.Type.TypeMessage)
+            {
+                defaultValue = $"new {_typename}()";
+            }
+            else if (obj.type == FieldDescriptorProto.Type.TypeEnum)
+            {
+                var enumType = ctx.TryFind<EnumDescriptorProto>(obj.TypeName);
+                if (enumType != null)
                 {
-                    var enumType = ctx.TryFind<EnumDescriptorProto>(obj.TypeName);
-                    if (enumType != null)
+                    EnumValueDescriptorProto found = null;
+                    if (!string.IsNullOrEmpty(defaultValue))
                     {
-                        EnumValueDescriptorProto found = null;
-                        if (!string.IsNullOrEmpty(defaultValue))
-                        {
-                            found = enumType.Values.FirstOrDefault(x => x.Name == defaultValue);
-                        }
-                        else if (ctx.Syntax == FileDescriptorProto.SyntaxProto2)
-                        {
-                            // find the first one; if that is a zero, we don't need it after all
-                            found = enumType.Values.FirstOrDefault();
-                            if (found != null && found.Number == 0)
-                            {
-                                if (!isOptional) found = null; // we don't need it after all
-                            }
-                        }
-                        // for proto3 the default is 0, so no need to do anything - GetValueOrDefault() will do it all
+                        found = enumType.Values.FirstOrDefault(x => x.Name == defaultValue);
+                    }
+                    else if (ctx.Syntax == FileDescriptorProto.SyntaxProto2)
+                    {
+                        found = enumType.Values.FirstOrDefault();
+                    }
 
-                        if (found != null)
-                        {
-                            defaultValue = ctx.NameNormalizer.GetName(found);
-                        }
-                        if (!string.IsNullOrWhiteSpace(defaultValue))
-                        {
-                            var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
-                            defaultValue = typeName + "." + defaultValue;
-                        }
+                    if (found != null)
+                    {
+                        defaultValue = ctx.NameNormalizer.GetName(found);
+                    }
+                    if (!string.IsNullOrWhiteSpace(defaultValue))
+                    {
+                        var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
+                        defaultValue = typeName + "." + defaultValue;
                     }
                 }
             }
@@ -644,8 +650,7 @@ namespace ProtoBuf.Reflection
             bool suppressDefaultAttribute = !isOptional;
             var typeName = GetTypeName(ctx, obj, out var dataFormat, out var isMap);
 
-            defaultValue = GetDefaltValue(ctx, obj, isOptional);
-
+            defaultValue = GetDefaltValue(ctx, obj, typeName);
             if (isRepeated)
             {
                 var mapMsgType = isMap ? ctx.TryFind<DescriptorProto>(obj.TypeName) : null;
@@ -668,18 +673,9 @@ namespace ProtoBuf.Reflection
             }
             else
             {
-                string tvaluestr = defaultValue;
-                if (typeName.Contains("float") || typeName.Contains("double"))
-                {
-                    if (!string.IsNullOrEmpty(tvaluestr) && !tvaluestr.EndsWith("f"))
-                        tvaluestr += "f";
-                }
-                else if(obj.type == FieldDescriptorProto.Type.TypeMessage)
-                {
-                    tvaluestr = $"new {typeName}()";
-                }
-                if(!string.IsNullOrEmpty(tvaluestr))
-                    ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName} {obj.Name} = {tvaluestr};");
+               
+                if(!string.IsNullOrEmpty(defaultValue))
+                    ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName} {obj.Name} = {defaultValue};");
                 else
                     ctx.WriteLine($"{GetAccess(GetAccess(obj))} {typeName} {obj.Name} ;");
             }
