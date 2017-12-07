@@ -488,6 +488,7 @@ namespace ProtoBuf.Reflection
             ctx.WriteLine($"output.Flush();");
             ctx.WriteLine($"byte[] ret = tmemsteam.ToArray();");
             ctx.WriteLine($"output.Dispose();");
+            ctx.WriteLine($"tmemsteam.Dispose();");
             ctx.WriteLine($"return ret;");
             ctx.Outdent();
             ctx.WriteLine($"{"}"}");

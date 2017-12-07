@@ -1,3 +1,5 @@
 /.vs
 /ProtoTool/bin/Debug
 /ProtoTool/obj
+/ProtoTool/bin/Release/ProtoTool.exe.config
+/ProtoTool/bin/Release/ProtoTool.pdb
