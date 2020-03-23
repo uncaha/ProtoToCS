@@ -52,7 +52,7 @@ namespace ProtoTool
 
             tnewmsg.AppendLine(System.DateTime.Now.ToString() + ":开始导出.");
             textBox3.Text = tnewmsg.ToString();
-            CodeGenerator codegen = CSharpCodeGenerator.Default;
+            ILCodeGen codegen = ILCodeGen.Default;
             var set = new FileDescriptorSet();
             set.AddImportPath(mSPath);
 
